@@ -156,6 +156,13 @@ drivers/elk_data/       modelos e efeitos
 
 `devices.json`, `settings.json` e `smartdevices.log` são criados na primeira execução e ficam fora do git.
 
+## Próximos passos
+
+A próxima versão traz um **menu central por tipo de aparelho**: um card para cada tipo cadastrado
+(Luzes, Tomadas, Ar-condicionado…), e clicar no card abre a aba daquele tipo. O painel atual vira
+a aba **Luzes**. Detalhes e o restante dos planos, incluindo o controle de ar por infravermelho,
+estão no [ROADMAP.md](ROADMAP.md).
+
 ## Créditos
 
 A tabela de modelos e efeitos ELK-BLEDOM (`drivers/elk_data/`) vem do projeto
