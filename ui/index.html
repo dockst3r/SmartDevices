@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>SmartDevices</title>
+<style>
+/* Painel no estilo das Configurações Rápidas do Windows 11.
+   Nada aqui é específico de um aparelho: tudo é desenhado a partir de device.actions(). */
+:root {
+  --accent: var(--acc-l, #005fb8); --accent-ink: #ffffff;
+  --bg: #f3f3f3; --bg-2: #ebebeb; --ink: #1b1b1b; --ink-2: #5f5f5f;
+  --tile: #fbfbfb; --tile-hover: #f6f6f6; --tile-press: #f0f0f0;
+  --line: rgba(0,0,0,.08); --hover: rgba(0,0,0,.04); --press: rgba(0,0,0,.025);
+  --track: rgba(0,0,0,.45); --card: #fff; --good: #0f7b0f; --bad: #c42b1c;
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "Cascadia Mono", Consolas, monospace;
+  --glyph: "Segoe Fluent Icons", "Segoe MDL2 Assets";
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: var(--acc-d, #4cc2ff); --accent-ink: #000000;
+    --bg: #202020; --bg-2: #1b1b1b; --ink: #fff; --ink-2: #c5c5c5;
+    --tile: #2d2d2d; --tile-hover: #323232; --tile-press: #272727;
+    --line: rgba(255,255,255,.08); --hover: rgba(255,255,255,.06); --press: rgba(255,255,255,.04);
+    --track: rgba(255,255,255,.54); --card: #454545; --good: #6ccb5f; --bad: #ff99a4;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.4 var(--font); user-select: none; cursor: default; }
+button { font: inherit; color: inherit; cursor: default; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; box-shadow: inset 0 0 0 1px var(--bg); }
+.glyph { font-family: var(--glyph); font-size: 16px; line-height: 1; font-style: normal; }
+
+#root { display: flex; flex-direction: column; height: 100%; }
+.body { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: 16px; }
+.body::-webkit-scrollbar { width: 10px; }
+.body::-webkit-scrollbar-track { background: transparent; }
+.body::-webkit-scrollbar-thumb { background: transparent; border: 3px solid transparent; border-radius: 6px; background-clip: padding-box; }
+.body:hover::-webkit-scrollbar-thumb { background-color: var(--track); }
+#content { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+
+.head { display: flex; align-items: center; gap: 10px; min-height: 32px; }
+.head .name { font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status { font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+.dot.off { background: var(--ink-2); }
+.icon-btn { width: 32px; height: 32px; border: 0; background: transparent; border-radius: 4px; display: grid; place-items: center; flex: none; padding: 0; }
+.icon-btn:hover { background: var(--hover); }
+.icon-btn:active { background: var(--press); color: var(--ink-2); }
+.logo { width: 20px; height: 20px; flex: none; }
+
+/* ---------- blocos: área principal liga/desliga, seta abre os controles daquele aparelho ---------- */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile { display: flex; border-radius: 6px; border: 1px solid var(--line); background: var(--tile); min-width: 0; overflow: hidden; }
+.tile > button { border: 0; background: transparent; color: inherit; padding: 0; }
+.tile-main { flex: 1; min-width: 0; text-align: left; padding: 10px 4px 10px 12px !important; display: grid; gap: 3px; }
+.tile-more { width: 28px; flex: none; display: grid; place-items: center; border-left: 1px solid var(--line) !important; }
+.tile > button:hover { background: var(--tile-hover); }
+.tile > button:active { background: var(--tile-press); color: var(--ink-2); }
+.tile.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.tile.on > button:hover { background: color-mix(in srgb, var(--accent) 90%, var(--bg)); }
+.tile.on > button:active { background: color-mix(in srgb, var(--accent) 80%, var(--bg)); color: color-mix(in srgb, var(--accent-ink) 75%, transparent); }
+.tile.on .tile-more { border-left-color: color-mix(in srgb, var(--accent-ink) 25%, transparent) !important; }
+.tile.sel { box-shadow: 0 0 0 2px var(--accent); }
+.tile.on.sel { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.tile.offline:not(.busy) .tile-main { opacity: .6; }
+.tile .top { display: flex; align-items: center; justify-content: space-between; min-height: 18px; margin-bottom: 2px; padding-right: 6px; }
+.tile .lbl { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .sub { font-size: 12px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.swatch { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 2px currentColor; }
+.tile .spinner { width: 14px; height: 14px; border-color: color-mix(in srgb, currentColor 25%, transparent); border-top-color: currentColor; opacity: 0; animation: spin .8s linear infinite, appear 0s .25s forwards; }
+@keyframes appear { to { opacity: 1; } }
+
+.ctl-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--ink-2); min-height: 26px; }
+.ctl-title b { color: var(--ink); font-weight: 600; }
+
+/* ---------- controles ---------- */
+.ctl { display: grid; gap: 6px; }
+.ctl-head { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--ink-2); gap: 8px; }
+.ctl-head b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Slider Fluent: anel neutro com um ponto de destaque que cresce ao passar o mouse e encolhe ao arrastar. */
+input[type=range] { width: 100%; -webkit-appearance: none; appearance: none; height: 22px; background: transparent; margin: 0; }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--fill, var(--track)); }
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 50%;
+  background: radial-gradient(circle, var(--accent) 0 var(--dot, 6px), var(--card) calc(var(--dot, 6px) + .5px));
+  box-shadow: 0 0 0 1px var(--line), 0 1px 2px rgba(0,0,0,.25);
+}
+input[type=range]:hover { --dot: 7px; }
+input[type=range]:active { --dot: 5px; }
+input[type=range]:focus-visible { box-shadow: none; outline-offset: 2px; border-radius: 4px; }
+
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(22px, 1fr)); gap: 4px; }
+.sw { width: 100%; aspect-ratio: 1; max-width: 28px; padding: 0; border-radius: 50%; border: 2px solid transparent; box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); forced-color-adjust: none; }
+.sw:hover { transform: scale(1.08); }
+.sw[aria-checked="true"] { border-color: var(--bg); box-shadow: 0 0 0 2px var(--accent); }
+.sw-custom { position: relative; overflow: hidden; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+.sw-custom input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; }
+.sw-custom:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+select, input[type=text] { font: inherit; font-size: 13px; color: var(--ink); background: var(--tile); border: 1px solid var(--line); border-bottom-color: var(--ink-2); border-radius: 4px; padding: 6px 8px; width: 100%; min-width: 0; }
+select:hover, input[type=text]:hover { background: var(--tile-hover); }
+input[type=text]:focus { border-bottom: 2px solid var(--accent); outline: none; box-shadow: none; background: var(--bg); }
+.btn-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn { border: 1px solid var(--line); background: var(--tile); border-radius: 4px; padding: 5px 12px; font-size: 13px; white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; }
+.btn:hover { background: var(--tile-hover); }
+.btn:active { background: var(--tile-press); color: var(--ink-2); }
+.btn:disabled { opacity: .6; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn.primary:hover { background: color-mix(in srgb, var(--accent) 90%, var(--bg)); }
+.btn.danger { color: var(--bad); }
+.btn.done::after { content: "\E73E"; font-family: var(--glyph); color: var(--good); }
+.btn .spinner { width: 12px; height: 12px; }
+
+.foot { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px 6px 12px; background: var(--bg-2); border-top: 1px solid var(--line); flex: none; }
+.foot-right { display: flex; gap: 2px; }
+.link-btn { border: 0; background: transparent; padding: 6px 8px; border-radius: 4px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.link-btn:hover { background: var(--hover); }
+.link-btn:active { background: var(--press); color: var(--ink-2); }
+.icon-btn[aria-pressed="true"] { color: var(--accent); }
+
+.list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 10px; border-radius: 6px; background: var(--tile); border: 1px solid var(--line); }
+.row-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.meta { flex: 1; min-width: 0; }
+.meta .t { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta .s { font-size: 11.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mono { font-family: var(--mono); }
+.pill { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--hover); white-space: nowrap; }
+.pill.ok { color: var(--good); }
+
+/* Interruptor Fluent: a bolinha cresce ao passar o mouse e alonga ao pressionar. */
+.toggle { width: 40px; height: 20px; border-radius: 10px; border: 1px solid var(--ink-2); background: transparent; position: relative; flex: none; padding: 0; }
+.toggle::after { content: ""; position: absolute; top: 50%; left: 4px; width: 12px; height: 12px; margin-top: -6px; border-radius: 6px; background: var(--ink-2); transition: left .12s, width .12s, height .1s, margin .1s; }
+.toggle:hover { background: var(--hover); }
+.toggle:hover::after { width: 14px; height: 14px; margin-top: -7px; left: 3px; }
+.toggle:active::after { width: 17px; }
+.toggle[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.toggle[aria-checked="true"]::after { left: 23px; background: var(--accent-ink); }
+.toggle[aria-checked="true"]:hover::after { left: 22px; }
+.toggle[aria-checked="true"]:active::after { left: 19px; }
+.toggle:disabled { opacity: .5; }
+
+.spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty { text-align: center; padding: 18px 8px; display: grid; gap: 10px; justify-items: center; color: var(--ink-2); }
+.empty b { color: var(--ink); }
+.loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 40px 0; color: var(--ink-2); }
+.section-label { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+
+#toast { position: fixed; left: 12px; right: 12px; bottom: 52px; padding: 10px 12px; border-radius: 6px; background: var(--card); box-shadow: 0 4px 16px rgba(0,0,0,.25); font-size: 12.5px; white-space: pre-line; }
+#toast.error { border-left: 3px solid var(--bad); }
+#toast.ok { border-left: 3px solid var(--good); }
+
+@media (prefers-reduced-motion: reduce) {
+  .toggle::after { transition: none; }
+  .spinner, .tile .spinner { animation-duration: 3s, 0s; }
+  .sw:hover { transform: none; }
+}
+@media (forced-colors: active) {
+  .tile, .row, .btn, .toggle, select, input[type=text] { border: 1px solid ButtonText; }
+  .tile.on { background: Highlight; color: HighlightText; }
+  .tile.sel { outline: 2px solid Highlight; outline-offset: 2px; }
+  .toggle::after { background: ButtonText; }
+  .toggle[aria-checked="true"] { background: Highlight; }
+  .toggle[aria-checked="true"]::after { background: HighlightText; }
+  input[type=range]::-webkit-slider-runnable-track { background: ButtonText; }
+  input[type=range]::-webkit-slider-thumb { background: Highlight; }
+  .sw[aria-checked="true"] { outline: 2px solid Highlight; outline-offset: 2px; }
+}
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="body"><div id="content"><div class="loading"><span class="spinner"></span>Carregando…</div></div></div>
+  <div class="foot" id="foot">
+    <button class="link-btn" type="button" data-cmd="scan">
+      <span class="glyph" aria-hidden="true">&#xE721;</span>
+      Procurar dispositivos
+    </button>
+    <div class="foot-right">
+      <button class="icon-btn" type="button" data-cmd="settings" id="setBtn" title="Configurações" aria-label="Configurações" aria-pressed="false">
+        <span class="glyph" aria-hidden="true">&#xE713;</span>
+      </button>
+      <button class="icon-btn" type="button" data-cmd="power-all" id="powerAll" title="Desligar tudo" aria-label="Desligar tudo">
+        <span class="glyph" aria-hidden="true">&#xE7E8;</span>
+      </button>
+    </div>
+  </div>
+</div>
+<div id="toast" hidden></div>
+
+<script>
+(() => {
+  // Ícone por categoria do driver (Device.category). Categoria nova: acrescente aqui.
+  const ICONS = {
+    light: '<rect x="5.6" y="1.6" width="4.8" height="10.6" rx="2.4"/><path d="M8 4.4v5M4.6 14.4h6.8" stroke-linecap="round"/>',
+    plug: '<path d="M5.5 1.5v3M10.5 1.5v3" stroke-linecap="round"/><path d="M3.5 4.5h9v2.5a4.5 4.5 0 0 1-9 0V4.5Z"/><path d="M8 11.5v3" stroke-linecap="round"/>',
+    climate: '<path d="M8 1.5v13M2.4 4.8l11.2 6.4M2.4 11.2l11.2-6.4" stroke-linecap="round"/><path d="M6.5 2.8 8 4.2l1.5-1.4M6.5 13.2 8 11.8l1.5 1.4" stroke-linecap="round"/>',
+    sensor: '<path d="M6 9.5V3a2 2 0 1 1 4 0v6.5a3.2 3.2 0 1 1-4 0Z"/>',
+    other: '<rect x="2.5" y="2.5" width="11" height="11" rx="2"/><circle cx="8" cy="8" r="2"/>',
+  };
+  const icon = (cat, size = 16) => `<svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">${ICONS[cat] || ICONS.other}</svg>`;
+  const LOGO = '<svg class="logo" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="5.6" y="1.6" width="4.8" height="10.6" rx="2.4"/><path d="M8 4.4v5" stroke="#ffb02e" stroke-width="1.6" stroke-linecap="round"/><path d="M4.6 14.4h6.8" stroke-linecap="round"/></svg>';
+  const BACK = '<span class="glyph" aria-hidden="true">&#xE72B;</span>';
+  const CHEVRON = '<span class="glyph" style="font-size:12px" aria-hidden="true">&#xE76C;</span>';
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const byId = id => document.getElementById(id);
+  const content = byId("content"), toastEl = byId("toast");
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const hex = rgb => "#" + rgb.map(x => Number(x).toString(16).padStart(2, "0")).join("");
+  const sameValue = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  let devices = [], settings = {}, view = "main", target = "all", confirmRemove = null;
+  let scan = { busy: false, rows: [], adding: null };
+  const busy = new Map();  // id do aparelho -> comandos em andamento
+
+  // ---------- chamadas ao Python ----------
+  async function call(name, ...args) {
+    let r;
+    try { r = await window.pywebview.api[name](...args); }
+    catch (e) { toast(String(e), "error"); return null; }
+    if (r && r.error) { toast(r.error, "error"); return null; }
+    return r;
+  }
+  function reportResults(r) {
+    const failed = (r?.results || []).filter(x => !x.ok);
+    if (failed.length) toast(failed.map(f => `${f.label}: ${f.error}`).join("\n"), "error");
+    return !failed.length && !!r;
+  }
+
+  // Fila única e em ordem. Comandos iguais (mesma ação e mesmos aparelhos) ainda não enviados
+  // são trocados pelo mais novo, então arrastar um slider não enfileira dezenas de comandos.
+  const pending = new Map();
+  let pumping = false;
+  function send(ids, key, values, onDone) {
+    const k = key + "|" + ids.join(",");
+    pending.delete(k);
+    pending.set(k, [ids, key, values, onDone]);
+    pump();
+  }
+  async function pump() {
+    if (pumping) return;
+    pumping = true;
+    while (pending.size) {
+      const [k, [ids, key, values, onDone]] = pending.entries().next().value;
+      pending.delete(k);
+      ids.forEach(id => busy.set(id, (busy.get(id) || 0) + 1));
+      updateLive();
+      const ok = reportResults(await call("execute", ids, key, values));
+      ids.forEach(id => { const n = (busy.get(id) || 1) - 1; n ? busy.set(id, n) : busy.delete(id); });
+      onDone?.(ok);
+    }
+    pumping = false;
+    refresh(false);  // confirma o estado real (e desfaz o otimista se algo falhou)
+  }
+
+  let toastTimer;
+  function toast(text, kind = "ok") {
+    toastEl.className = kind;
+    toastEl.setAttribute("role", kind === "error" ? "alert" : "status");
+    toastEl.textContent = text;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.hidden = true, kind === "error" ? 6000 : 2500);
+  }
+  toastEl.addEventListener("click", () => toastEl.hidden = true);
+
+  function applyAccent(acc) {
+    const root = document.documentElement.style;
+    if (acc?.light) root.setProperty("--acc-l", acc.light); else root.removeProperty("--acc-l");
+    if (acc?.dark) root.setProperty("--acc-d", acc.dark); else root.removeProperty("--acc-d");
+  }
+
+  // ---------- dados ----------
+  const targets = () => target === "all" ? devices : devices.filter(d => d.id === target);
+
+  // Junta um parâmetro de vários aparelhos no que TODOS aceitam (faixa comum, opções comuns).
+  function mergeParam(ps) {
+    if (!ps.every(x => x && x.kind === ps[0].kind)) return null;
+    const p = { ...ps[0] };
+    if (p.kind === "int") {
+      p.min = Math.max(...ps.map(x => x.min));
+      p.max = Math.min(...ps.map(x => x.max));
+      if (p.min > p.max) return null;
+    }
+    if (p.kind === "choice" || p.kind === "color") {
+      const sets = ps.slice(1).map(x => new Set(x.choices.map(c => JSON.stringify(c[1]))));
+      p.choices = p.choices.filter(c => sets.every(s => s.has(JSON.stringify(c[1]))));
+      if (p.kind === "choice" && !p.choices.length) return null;
+    }
+    return p;
+  }
+  function commonActions(list) {
+    if (!list.length) return [];
+    const out = [];
+    for (const a of list[0].actions) {
+      const same = list.map(d => d.actions.find(x => x.key === a.key));
+      if (same.some(x => !x || x.params.length !== a.params.length)) continue;
+      const params = a.params.map((p, i) => mergeParam(same.map(x => x.params.find(q => q.key === p.key) || x.params[i])));
+      if (params.some(p => !p)) continue;
+      out.push({ ...a, params });
+    }
+    return out;
+  }
+  function currentValue(action, param) {
+    const st = targets()[0]?.state?.[action.key];
+    let v = action.params.length === 1 ? st : st?.[param.key];
+    if (param.kind === "int" && typeof v === "number") v = Math.min(param.max, Math.max(param.min, v));
+    if (v !== undefined && v !== null) return v;
+    if (param.kind === "int") return Math.round((param.min + param.max) / 2 / (param.step || 1)) * (param.step || 1);
+    if (param.kind === "bool") return false;
+    if (param.kind === "choice") return param.choices[0]?.[1];
+    return null;
+  }
+
+  let snapSeq = 0;
+  async function refresh(full) {
+    const my = ++snapSeq;
+    const snap = await call("snapshot");
+    if (!snap || my !== snapSeq) return;  // uma resposta mais nova já chegou
+    const before = devices.map(d => d.id).join();
+    devices = snap.devices; settings = snap.settings;
+    applyAccent(settings.accent);
+    if (target !== "all" && !devices.some(d => d.id === target)) target = "all";
+    const idsChanged = before !== devices.map(d => d.id).join();
+    if (full || (view === "main" && idsChanged)) render();
+    else if (view === "main") updateLive();
+    else patchStatus();  // fora da tela principal, não refaz a tela (preserva o que está sendo digitado)
+  }
+
+  // ---------- desenho ----------
+  function tileHtml(d) {
+    const on = d.state.on === true;
+    const isBusy = d.connecting || busy.has(d.id);
+    const sub = d.connecting ? "Conectando…" : d.connected ? d.summary : "Desconectado";
+    const mark = isBusy ? '<span class="spinner" aria-hidden="true"></span>'
+      : d.swatch ? `<span class="swatch" style="background:${esc(d.swatch)}" aria-hidden="true"></span>` : "";
+    const cls = ["tile", on && "on", target === d.id && "sel", !d.connected && "offline", isBusy && "busy"].filter(Boolean).join(" ");
+    const pressed = d.supports_power ? `aria-pressed="${on}"` : "";
+    const mainLabel = d.supports_power ? `${d.label}: ${sub}. Toque para ${on ? "desligar" : "ligar"}` : `${d.label}: ${sub}`;
+    return `<div class="${cls}" data-tile="${esc(d.id)}">
+      <button type="button" class="tile-main" data-dev="${esc(d.id)}" ${pressed} aria-label="${esc(mainLabel)}" aria-busy="${isBusy}" title="${esc(d.name)}">
+        <span class="top">${icon(d.category, 18)}${mark}</span>
+        <span class="lbl">${esc(d.label)}</span><span class="sub">${esc(sub)}</span>
+      </button>
+      <button type="button" class="tile-more" data-pick="${esc(d.id)}" aria-label="Controles de ${esc(d.label)}" aria-pressed="${target === d.id}" title="Controles de ${esc(d.label)}">${CHEVRON}</button>
+    </div>`;
+  }
+  function headStatus() {
+    const n = devices.length, conn = devices.filter(d => d.connected).length, on = devices.filter(d => d.state.on).length;
+    const text = n === 1
+      ? `${conn ? "Conectado" : "Desconectado"} · ${on ? "Ligado" : "Desligado"}`
+      : `${conn} de ${n} conectados · ${plural(on, "ligado", "ligados")}`;
+    return `<span class="dot ${conn ? "" : "off"}"></span>${text}`;
+  }
+  function updateLive() {
+    // Troca só os blocos que mudaram, para não roubar o foco de quem usa o teclado.
+    devices.forEach(d => {
+      const el = document.querySelector(`.tile[data-tile="${CSS.escape(d.id)}"]`);
+      if (!el) return;
+      const html = tileHtml(d);
+      if (el.dataset.html === html) return;
+      const focused = el.contains(document.activeElement) ? (document.activeElement.dataset.dev ? "main" : "more") : null;
+      el.outerHTML = html;
+      const fresh = document.querySelector(`.tile[data-tile="${CSS.escape(d.id)}"]`);
+      fresh.dataset.html = html;
+      if (focused) fresh.querySelector(focused === "main" ? ".tile-main" : ".tile-more").focus();
+    });
+    const st = byId("headStatus");
+    if (st) st.innerHTML = headStatus();
+    updatePowerAll();
+  }
+  function patchStatus() {
+    devices.forEach(d => {
+      const pill = document.querySelector(`[data-pill="${CSS.escape(d.id)}"]`);
+      if (pill) { pill.textContent = d.connected ? "conectado" : d.connecting ? "conectando…" : "desconectado"; pill.classList.toggle("ok", d.connected); }
+    });
+    updatePowerAll();
+  }
+  function updatePowerAll() {
+    const anyOn = devices.some(d => d.supports_power && d.state.on);
+    const b = byId("powerAll");
+    const label = anyOn ? "Desligar tudo" : "Ligar tudo";
+    b.title = label; b.setAttribute("aria-label", label);
+    b.dataset.on = anyOn ? "0" : "1";
+    b.hidden = !devices.some(d => d.supports_power);
+    byId("setBtn").setAttribute("aria-pressed", view === "settings");
+  }
+
+  function paramHtml(action, p, single) {
+    const v = currentValue(action, p);
+    const id = `p-${action.key}-${p.key}`;
+    const data = `data-action="${esc(action.key)}" data-param="${esc(p.key)}" data-single="${single ? 1 : 0}" data-kind="${esc(p.kind)}"`;
+    const title = single ? action.label : p.label;
+    if (p.kind === "int") {
+      const unit = p.unit === "%" ? "%" : p.unit ? " " + p.unit : "";
+      return `<div class="ctl"><div class="ctl-head"><label for="${esc(id)}">${esc(title)}</label><b id="${esc(id)}-out">${esc(v)}${esc(unit)}</b></div>
+        <input type="range" id="${esc(id)}" ${data} data-unit="${esc(unit)}" min="${p.min}" max="${p.max}" step="${p.step || 1}" value="${esc(v)}" aria-valuetext="${esc(v + unit)}"></div>`;
+    }
+    if (p.kind === "color") {
+      const cur = Array.isArray(v) ? JSON.stringify(v) : "";
+      const sws = p.choices.map(([n, c]) => `<button type="button" class="sw" role="radio" style="background:${esc(hex(c))}" data-rgb="${esc(c.join(","))}" ${data} title="${esc(n)}" aria-label="${esc(n)}" aria-checked="${JSON.stringify(c) === cur}"></button>`).join("");
+      return `<div class="ctl"><div class="ctl-head"><span id="${esc(id)}-lbl">${esc(title)}</span><b class="mono" id="${esc(id)}-out">${Array.isArray(v) ? hex(v) : ""}</b></div>
+        <div class="swatches" role="radiogroup" aria-labelledby="${esc(id)}-lbl">${sws}<label class="sw sw-custom" title="Outra cor"><input type="color" id="${esc(id)}" ${data} value="${Array.isArray(v) ? hex(v) : "#ffffff"}" aria-label="Outra cor"></label></div></div>`;
+    }
+    if (p.kind === "choice") {
+      const opts = p.choices.map(([n, val]) => `<option value="${esc(JSON.stringify(val))}" ${sameValue(val, v) ? "selected" : ""}>${esc(n)}</option>`).join("");
+      return `<div class="ctl"><div class="ctl-head"><label for="${esc(id)}">${esc(title)}</label></div><select id="${esc(id)}" ${data}>${opts}</select></div>`;
+    }
+    if (p.kind === "bool") {
+      return `<div class="row-main"><span class="meta"><span class="t" id="${esc(id)}-lbl">${esc(title)}</span></span><button type="button" class="toggle" role="switch" id="${esc(id)}" ${data} aria-checked="${!!v}" aria-labelledby="${esc(id)}-lbl"></button></div>`;
+    }
+    return "";
+  }
+
+  function controlsHtml(actions, hasPower) {
+    // on/off viram o botão do bloco só quando os dois existem; um "Ligar" sozinho (ex.: controle IR) vira botão aqui.
+    const simple = hasPower ? actions.filter(a => !["on", "off"].includes(a.key)) : actions;
+    const buttons = simple.filter(a => a.params.length === 0);
+    const single = simple.filter(a => a.params.length === 1);
+    const multi = simple.filter(a => a.params.length > 1);
+    let html = single.map(a => paramHtml(a, a.params[0], true)).join("");
+    html += multi.map(a => `<div class="row" data-form="${esc(a.key)}"><div class="section-label">${esc(a.label)}</div>
+      ${a.params.map(p => paramHtml(a, p, false)).join("")}
+      <div class="btn-row"><button type="button" class="btn primary" data-apply="${esc(a.key)}">Aplicar</button></div></div>`).join("");
+    if (buttons.length) html += `<div class="btn-row">${buttons.map(a => `<button type="button" class="btn" data-run="${esc(a.key)}">${esc(a.label)}</button>`).join("")}</div>`;
+    return html;
+  }
+
+  function renderMain() {
+    let html = `<div class="head">${LOGO}<span class="name">SmartDevices</span><span class="status" id="headStatus">${headStatus()}</span></div>`;
+    if (!devices.length) {
+      html += `<div class="empty">${icon("other", 28)}<b>Nenhum dispositivo adicionado</b>
+        <span>Feche o app do aparelho no celular (ele prende a conexão) e procure os aparelhos por perto.</span>
+        <button type="button" class="btn primary" data-cmd="scan">Procurar dispositivos</button></div>`;
+      content.innerHTML = html;
+      return;
+    }
+    html += `<div class="tiles">${devices.map(tileHtml).join("")}</div>`;
+    const list = targets();
+    const who = devices.length === 1 ? "" : target === "all" ? " · <b>Todos</b>" : ` · <b>${esc(list[0].label)}</b>`;
+    html += `<div class="ctl-title"><span>Controles${who}</span>${target !== "all" ? `<button type="button" class="btn" data-cmd="all">Controlar todos</button>` : ""}</div>`;
+    const ctl = controlsHtml(commonActions(list), list.every(d => d.supports_power));
+    const none = list.length === 1 ? "Este aparelho só pode ser ligado e desligado." : "Esses aparelhos não têm controles em comum além de ligar e desligar.";
+    html += ctl || `<div class="empty"><span>${none}</span></div>`;
+    content.innerHTML = html;
+    content.querySelectorAll(".tile").forEach(el => el.dataset.html = tileHtml(devices.find(d => d.id === el.dataset.tile)));
+    content.querySelectorAll('input[type=range]').forEach(fillTrack);
+  }
+
+  function renderScan() {
+    let rows;
+    if (scan.busy) {
+      rows = `<div class="row"><div class="row-main"><span class="spinner"></span><div class="meta"><div class="t">Procurando aparelhos próximos…</div><div class="s">Feche o app do aparelho no celular</div></div></div></div>`;
+    } else if (!scan.rows.length) {
+      rows = `<div class="empty"><b>Nada encontrado</b><span>Verifique se o Bluetooth do PC está ligado e se o aparelho está perto.</span><button type="button" class="btn" data-cmd="rescan">Procurar de novo</button></div>`;
+    } else {
+      rows = scan.rows.map(r => {
+        const signal = r.signal != null ? `${r.signal} dBm` : r.transport;
+        let right;
+        if (r.saved) right = `<span class="pill ok">adicionado</span>`;
+        else if (!r.supported) right = `<span class="pill">não suportado</span>`;
+        else right = `<button type="button" class="btn primary" data-add="${esc(r.address)}">Adicionar</button>`;
+        const form = scan.adding === r.address ? `<div class="btn-row" style="flex-wrap:nowrap">
+          <input type="text" id="aliasInput" placeholder="Apelido, ex: Torre da cama" aria-label="Apelido de ${esc(r.name)}">
+          <button type="button" class="btn primary" data-save="${esc(r.address)}">Salvar</button></div>` : "";
+        return `<div class="row"><div class="row-main">${icon(r.category)}<div class="meta"><div class="t">${esc(r.name)}</div>
+          <div class="s"><span class="mono">${esc(r.address)}</span> · ${esc(signal)}${r.driver_label ? " · " + esc(r.driver_label) : ""}</div></div>${right}</div>${form}</div>`;
+      }).join("") + `<div class="btn-row"><button type="button" class="btn" data-cmd="rescan">Procurar de novo</button></div>`;
+    }
+    content.innerHTML = `<div class="head"><button type="button" class="icon-btn" data-cmd="back" aria-label="Voltar">${BACK}</button><span class="name">Procurar dispositivos</span></div><div class="list" aria-live="polite">${rows}</div>`;
+    byId("aliasInput")?.focus();
+  }
+
+  function renderSettings() {
+    const devs = devices.map(d => {
+      const models = d.models.length ? `<select data-model="${esc(d.id)}" aria-label="Modelo de ${esc(d.label)}">
+          <option value="">Modelo automático${d.model ? " (" + esc(d.model) + ")" : ""}</option>
+          ${d.models.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("")}</select>` : "";
+      const removing = confirmRemove === d.id;
+      const st = d.connected ? "conectado" : d.connecting ? "conectando…" : "desconectado";
+      // Ajustes declarados pelo driver (Device.options); valores em d.config.
+      const opts = (d.options || []).map(p => {
+        const cur = d.config?.[p.key] ?? (p.kind === "choice" ? p.choices[0]?.[1] : false);
+        const data = `data-option="${esc(p.key)}" data-dev-id="${esc(d.id)}"`;
+        if (p.kind === "choice") return `<div class="ctl"><div class="ctl-head"><span>${esc(p.label)}</span></div>
+          <select ${data} aria-label="${esc(p.label)} de ${esc(d.label)}">${p.choices.map(([n, v]) => `<option value="${esc(JSON.stringify(v))}" ${sameValue(v, cur) ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></div>`;
+        if (p.kind === "bool") return `<div class="row-main"><span class="meta"><span class="t">${esc(p.label)}</span></span>
+          <button type="button" class="toggle" role="switch" ${data} aria-checked="${!!cur}" aria-label="${esc(p.label)}"></button></div>`;
+        return "";
+      }).join("");
+      return `<div class="row"><div class="row-main">${icon(d.category)}<div class="meta"><div class="t">${esc(d.name)}</div>
+          <div class="s"><span class="mono">${esc(d.address)}</span> · ${esc(d.driver_label)}</div></div>
+          <span class="pill ${d.connected ? "ok" : ""}" data-pill="${esc(d.id)}">${st}</span></div>
+        <input type="text" data-rename="${esc(d.id)}" value="${esc(d.alias || "")}" placeholder="Apelido (${esc(d.name)})" aria-label="Apelido de ${esc(d.name)}">
+        ${models}
+        ${opts}
+        <div class="btn-row"><button type="button" class="btn danger" data-remove="${esc(d.id)}">${removing ? "Confirmar remoção" : "Remover"}</button>
+        ${removing ? `<button type="button" class="btn" data-cmd="cancel-remove">Cancelar</button>` : ""}</div></div>`;
+    }).join("");
+    content.innerHTML = `<div class="head"><button type="button" class="icon-btn" data-cmd="back" aria-label="Voltar">${BACK}</button><span class="name">Configurações</span></div>
+      <div class="list">
+        <div class="row"><div class="row-main"><div class="meta"><div class="t" id="startupLbl">Iniciar com o Windows</div><div class="s">Abre só o ícone na bandeja ao ligar o PC</div></div>
+          <button type="button" class="toggle" role="switch" data-cmd="startup" aria-checked="${!!settings.startup}" aria-labelledby="startupLbl"></button></div></div>
+        ${devs ? `<div class="section-label">Dispositivos</div>${devs}` : ""}
+        <div class="btn-row"><button type="button" class="btn" data-cmd="reconnect">Reconectar todos</button>
+          <button type="button" class="btn danger" data-cmd="quit">Sair do SmartDevices</button></div>
+      </div>`;
+    content.querySelectorAll("select[data-model]").forEach(s => { const d = devices.find(x => x.id === s.dataset.model); if (d?.model && d.models.includes(d.model)) s.value = d.model; });
+  }
+
+  function render() {
+    if (view === "scan") renderScan();
+    else if (view === "settings") renderSettings();
+    else renderMain();
+    updatePowerAll();
+  }
+
+  function fillTrack(el) {
+    const p = (el.value - el.min) / (el.max - el.min) * 100;
+    el.style.setProperty("--fill", `linear-gradient(90deg, var(--accent) ${p}%, var(--track) ${p}%)`);
+  }
+
+  // ---------- ações ----------
+  async function startScan() {
+    view = "scan";
+    if (scan.busy) return render();  // já tem uma busca rodando: só mostra
+    const current = scan = { busy: true, rows: [], adding: null };
+    render();
+    const r = await call("scan");
+    current.busy = false; current.rows = r?.rows || [];
+    if (view === "scan" && scan === current) render();
+  }
+  function goMain() { view = "main"; confirmRemove = null; render(); refresh(false); $(".tile-main")?.focus(); }
+
+  function readParam(el) {
+    if (el.type === "range") return Number(el.value);
+    if (el.type === "color") return [1, 3, 5].map(i => parseInt(el.value.slice(i, i + 2), 16));
+    if (el.dataset.rgb) return el.dataset.rgb.split(",").map(Number);
+    if (el.tagName === "SELECT") return JSON.parse(el.value);
+    if (el.getAttribute("role") === "switch") return el.getAttribute("aria-checked") === "true";
+  }
+  const ids = () => targets().map(d => d.id);
+  function applyLocal(key, values, kinds) {
+    // Atualiza a interface na hora (de forma genérica); o retorno do Python confirma logo depois.
+    targets().forEach(d => {
+      const v = Object.values(values);
+      d.state[key] = v.length === 1 ? v[0] : values;
+      Object.entries(values).forEach(([pk, val]) => { if (kinds[pk] === "color" && d.state.on) d.swatch = hex(val); });
+    });
+    updateLive();
+  }
+  function sendSingle(el) {
+    const values = { [el.dataset.param]: readParam(el) };
+    applyLocal(el.dataset.action, values, { [el.dataset.param]: el.dataset.kind });
+    send(ids(), el.dataset.action, values);
+  }
+  function setOut(el, text) { const out = byId(el.id ? el.id + "-out" : `p-${el.dataset.action}-${el.dataset.param}-out`); if (out) out.textContent = text; }
+
+  document.addEventListener("click", async e => {
+    const b = e.target.closest("button");
+    if (!b || b.disabled) return;
+    const cmd = b.dataset.cmd;
+    if (cmd === "scan" || cmd === "rescan") { if (cmd === "rescan") scan.busy = false; return startScan(); }
+    if (cmd === "settings") { if (view === "settings") return goMain(); view = "settings"; confirmRemove = null; render(); return $("[data-cmd=back]")?.focus(); }
+    if (cmd === "back") return goMain();
+    if (cmd === "all") { target = "all"; return render(); }
+    if (cmd === "power-all") {
+      const on = b.dataset.on === "1";
+      devices.forEach(d => { if (d.supports_power) d.state.on = on; });
+      updateLive();
+      reportResults(await call("power_all", on));
+      return refresh(false);
+    }
+    if (cmd === "startup") {
+      b.disabled = true;
+      const r = await call("set_startup", b.getAttribute("aria-checked") !== "true");
+      b.disabled = false;
+      if (r) { settings.startup = r.startup; b.setAttribute("aria-checked", r.startup); }
+      return;
+    }
+    if (cmd === "reconnect") {
+      b.disabled = true; b.innerHTML = '<span class="spinner"></span>Conectando…';
+      const r = await call("connect");
+      b.disabled = false; b.textContent = "Reconectar todos";
+      if (reportResults(r)) toast("Todos conectados");
+      return refresh(false);
+    }
+    if (cmd === "quit") return call("quit");
+    if (b.dataset.option) {
+      const v = b.getAttribute("aria-checked") !== "true";
+      b.setAttribute("aria-checked", v);
+      if (await call("set_option", b.dataset.devId, b.dataset.option, v)) toast("Ajuste salvo");
+      return;
+    }
+    if (cmd === "cancel-remove") { confirmRemove = null; return render(); }
+
+    if (b.dataset.pick) { target = target === b.dataset.pick ? "all" : b.dataset.pick; return render(); }
+    if (b.dataset.dev) {
+      const d = devices.find(x => x.id === b.dataset.dev);
+      if (!d) return;
+      if (!d.supports_power) { target = d.id; return render(); }
+      const key = d.state.on ? "off" : "on";
+      d.state.on = key === "on";
+      if (!d.state.on) d.swatch = null;
+      updateLive();
+      return send([d.id], key, {});
+    }
+    if (b.dataset.rgb && b.dataset.single === "1") {
+      b.parentElement.querySelectorAll(".sw[data-rgb]").forEach(s => s.setAttribute("aria-checked", s === b));
+      setOut(b, hex(readParam(b)));
+      return sendSingle(b);
+    }
+    if (b.getAttribute("role") === "switch" && b.dataset.action) {
+      b.setAttribute("aria-checked", b.getAttribute("aria-checked") !== "true");
+      if (b.dataset.single === "1") sendSingle(b);
+      return;
+    }
+    if (b.dataset.rgb) {  // paleta dentro de um formulário com vários parâmetros
+      b.parentElement.querySelectorAll(".sw[data-rgb]").forEach(s => s.setAttribute("aria-checked", s === b));
+      b.closest(".ctl").dataset.value = b.dataset.rgb;
+      setOut(b, hex(readParam(b)));
+      return;
+    }
+    if (b.dataset.apply) {
+      const form = b.closest("[data-form]"), values = {}, kinds = {};
+      form.querySelectorAll("[data-param]").forEach(el => { if (el.classList.contains("sw")) return; values[el.dataset.param] = readParam(el); kinds[el.dataset.param] = el.dataset.kind; });
+      form.querySelectorAll(".ctl[data-value]").forEach(c => { const sw = c.querySelector(".sw[data-param]"); values[sw.dataset.param] = c.dataset.value.split(",").map(Number); kinds[sw.dataset.param] = "color"; });
+      applyLocal(b.dataset.apply, values, kinds);
+      return send(ids(), b.dataset.apply, values, ok => { if (ok) flash(b); });
+    }
+    if (b.dataset.run) return send(ids(), b.dataset.run, {}, ok => { if (ok) flash(b); });
+    if (b.dataset.add) { scan.adding = b.dataset.add; return render(); }
+    if (b.dataset.save) {
+      const alias = byId("aliasInput")?.value || "";
+      b.disabled = true;
+      const r = await call("add", b.dataset.save, alias);
+      b.disabled = false;
+      if (r) { const row = scan.rows.find(x => x.address === b.dataset.save); if (row) row.saved = true; scan.adding = null; toast("Adicionado. Conectando em segundo plano…"); render(); refresh(false); }
+      return;
+    }
+    if (b.dataset.remove) {
+      if (confirmRemove !== b.dataset.remove) { confirmRemove = b.dataset.remove; render(); return $(`[data-remove="${CSS.escape(b.dataset.remove)}"]`)?.focus(); }
+      confirmRemove = null;
+      if (await call("remove", b.dataset.remove)) toast("Removido");
+      return refresh(true);
+    }
+  });
+  function flash(b) { b.classList.add("done"); setTimeout(() => b.classList.remove("done"), 1200); }
+
+  document.addEventListener("input", e => {
+    const el = e.target;
+    if (!el.dataset.action) return;
+    if (el.type === "range") {
+      fillTrack(el);
+      setOut(el, el.value + el.dataset.unit);
+      el.setAttribute("aria-valuetext", el.value + el.dataset.unit);
+    }
+    if (el.type === "color") {
+      setOut(el, el.value);
+      el.closest(".swatches").querySelectorAll(".sw[data-rgb]").forEach(s => s.setAttribute("aria-checked", "false"));
+      el.closest(".ctl").dataset.value = readParam(el).join(",");
+    }
+    if (el.dataset.single === "1" && el.tagName !== "SELECT") sendSingle(el);
+  });
+
+  document.addEventListener("change", async e => {
+    const el = e.target;
+    if (el.tagName === "SELECT" && el.dataset.single === "1") return sendSingle(el);
+    if (el.dataset.option) { if (await call("set_option", el.dataset.devId, el.dataset.option, JSON.parse(el.value))) toast("Ajuste salvo"); return; }
+    if (el.dataset.rename !== undefined) { if (await call("rename", el.dataset.rename, el.value)) toast("Apelido salvo"); return; }
+    if (el.dataset.model !== undefined) { if (await call("set_model", el.dataset.model, el.value)) toast("Modelo alterado. Será usado na próxima conexão."); return refresh(false); }
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      if (confirmRemove) { confirmRemove = null; return render(); }
+      if (e.target.matches?.("input[type=text]")) e.target.blur();  // dispara o "change" e salva o apelido antes de sair
+      if (view !== "main") goMain(); else call("hide");
+    }
+    if (e.key === "Enter" && e.target.id === "aliasInput") $("[data-save]")?.click();
+  });
+
+  // O painel cresce com o conteúdo, até o limite da tela (o Python limita).
+  let lastH = 0;
+  new ResizeObserver(() => {
+    if (!window.pywebview?.api) return;
+    const h = Math.ceil(content.getBoundingClientRect().height + 32 + byId("foot").offsetHeight);
+    if (Math.abs(h - lastH) > 2) { lastH = h; window.pywebview.api.fit(h); }
+  }).observe(content);
+
+  window.app = {
+    refresh: () => refresh(false),
+    onShow: v => {
+      toastEl.hidden = true; confirmRemove = null;
+      if (v === "scan") return startScan();
+      if (v) view = v; else if (view !== "scan") view = "main";
+      refresh(true);
+    },
+  };
+  window.addEventListener("pywebviewready", () => { lastH = 0; refresh(true); });
+})();
+</script>
+</body>
+</html>

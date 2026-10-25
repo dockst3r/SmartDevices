@@ -1,0 +1,13 @@
+# Ambiente e caches
+.venv/
+__pycache__/
+*.pyc
+
+# Dados locais de cada instalação (endereços dos aparelhos, preferências, logs)
+devices.json
+settings.json
+*.tmp
+smartdevices.log*
+
+# Gerado ao iniciar
+ui/icon.ico
